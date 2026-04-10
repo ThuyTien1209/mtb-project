@@ -9,9 +9,16 @@ import gspread
 from metabase_query import Metabase
 from ...configs import config
 from ..resources.notifier import NftyResource
+from ..resources.filter import FilterResource
+from ..resources.email import EmailResource
+
 
 TODAY = dt.date.today().strftime('%Y-%m-%d')
 
+
+###################
+# BASE
+###################
 @dg.asset
 def metabase_data(context: dg.AssetExecutionContext,
                   nfty: NftyResource) -> pd.DataFrame: 
@@ -19,17 +26,17 @@ def metabase_data(context: dg.AssetExecutionContext,
 
     try:
         mb = Metabase(metabase_session=config.METABASE_SESSION)
-        url = config.URL
-        data = mb.query(url=url, format='json')
+        URL = config.URL
+        data = mb.query(url=URL, format='json')
 
         SUCCESS = f'Da lay du lieu tu metabase thanh cong'
         context.log.info(SUCCESS)
-        nfty.success(SUCCESS)
+        # nfty.success(SUCCESS)
 
     except Exception as e:
         ERROR = f'Loi lay du lieu tu metabase ngay {TODAY}: {str(e)}'
         context.log.info(ERROR + '- Dang gui loi ve ntfy')
-        nfty.failure(ERROR)
+        # nfty.failure(ERROR)
         context.log.info('Da gui loi ve ntfy')
  
     
@@ -45,7 +52,7 @@ def metabase_data(context: dg.AssetExecutionContext,
     except Exception as e:
         ERROR = f'Loi chuyen doi du lieu tu metabase sang DataFrame ngay {TODAY}: {str(e)}'
         context.log.info(ERROR + '- Dang gui loi ve ntfy')
-        nfty.failure(ERROR)
+        # nfty.failure(ERROR)
         context.log.info('Da gui loi ve ntfy')
 
     return df
@@ -77,12 +84,12 @@ def cleaned_data(context: dg.AssetExecutionContext,
       
         SUCCESS = 'Lam sach du lieu thanh cong'
         context.log.info(SUCCESS)
-        nfty.success(SUCCESS)
+        # nfty.success(SUCCESS)
     
     except Exception as e:
         ERROR = f'Loi lam sach du lieu ngay {TODAY}: {str(e)}'
         context.log.info(ERROR + '- Dang gui loi ve ntfy')
-        nfty.failure(ERROR)
+        # nfty.failure(ERROR)
         context.log.info('Da gui loi ve ntfy')
     
     return df
@@ -119,13 +126,243 @@ def gsheet_data(context: dg.AssetExecutionContext,
         nfty.failure(ERROR)
         context.log.info('Da gui loi ve ntfy')
 
-
 ##################################
-# ASSET FOR EACH CLIENT SOURCE
+# LOAD FOR EACH CLIENT SOURCE
 ##################################
 
-@dg.asset(deps=['cleaned_data'])
-def gsheet_data_by_client(context: dg.AssetExecutionContext,
-                          nfty: NftyResource,
-                          cleaned_data: pd.DataFrame) -> None:
-    pass
+@dg.asset(deps=['cleaned_data'], 
+          group_name='affiliate')
+def gsheet_affiliate(context: dg.AssetExecutionContext,
+                     filter: FilterResource, 
+                     cleaned_data: pd.DataFrame):
+    context.log.info('Bat dau load du lieu cua Affiliate')
+    try: 
+        df = cleaned_data.copy()
+        CLIENT = 'Affiliate'
+        FILTER_DF = filter.filter_by_client(CLIENT, df)
+
+        try: 
+            gc = gspread.service_account(filename=config.GC_KEY)
+            GDATA = gc.open_by_key(config.GSHEET_KEY)
+            METABASE_GSHEET = GDATA.worksheet(CLIENT)
+        except gspread.exceptions.WorksheetNotFound:
+            METABASE_GSHEET = GDATA.add_worksheet(title = CLIENT, rows=FILTER_DF.shape[0], cols=FILTER_DF.shape[1])
+
+        METABASE_GSHEET.clear()
+        METABASE_GSHEET.update([FILTER_DF.columns.values.tolist()] + FILTER_DF.values.tolist())
+
+        MIN_DATE = FILTER_DF['created_at'].min()
+        MAX_DATE = FILTER_DF['created_at'].max()
+        
+        SUCCESS = f'Da load {FILTER_DF.shape[0]} dong du lieu cua {CLIENT} thanh cong. Range data: {MIN_DATE} - {MAX_DATE}. Updated at: {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+        context.log.info(SUCCESS)
+
+    except Exception as e:
+        ERROR = f'Loi load du lieu cua Affiliate ngay {TODAY}: {str(e)}'
+        context.log.info(ERROR)
+    return FILTER_DF
+
+
+@dg.asset(deps=['cleaned_data'],
+          group_name='facebook')
+def gsheet_facebook(context: dg.AssetExecutionContext,
+                    filter: FilterResource,
+                    cleaned_data: pd.DataFrame):
+    context.log.info('Bat dau load du lieu cua Facebook')
+    try: 
+        df = cleaned_data.copy()
+        CLIENT = 'Facebook'
+        FILTER_DF = filter.filter_by_client(CLIENT, df)
+
+        try: 
+            gc = gspread.service_account(filename=config.GC_KEY)
+            GDATA = gc.open_by_key(config.GSHEET_KEY)
+            METABASE_GSHEET = GDATA.worksheet(CLIENT)
+        except gspread.exceptions.WorksheetNotFound:
+            METABASE_GSHEET = GDATA.add_worksheet(title = CLIENT, rows=FILTER_DF.shape[0], cols=FILTER_DF.shape[1])
+
+        METABASE_GSHEET.clear()
+        METABASE_GSHEET.update([FILTER_DF.columns.values.tolist()] + FILTER_DF.values.tolist())
+
+        MIN_DATE = FILTER_DF['created_at'].min()
+        MAX_DATE = FILTER_DF['created_at'].max()
+        
+        SUCCESS = f'Da load {FILTER_DF.shape[0]} dong du lieu cua {CLIENT} thanh cong. Range data: {MIN_DATE} - {MAX_DATE}. Updated at: {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+        context.log.info(SUCCESS)
+
+    except Exception as e:
+        ERROR = f'Loi load du lieu cua Affiliate ngay {TODAY}: {str(e)}'
+        context.log.info(ERROR)
+    return FILTER_DF
+
+@dg.asset(deps=['cleaned_data'],
+          group_name='organic')
+def gsheet_organic(context: dg.AssetExecutionContext,
+                   filter: FilterResource,
+                   cleaned_data: pd.DataFrame):
+    context.log.info('Bat dau load du lieu cua Organic')
+    try: 
+        df = cleaned_data.copy()
+        CLIENT = 'Organic'
+        FILTER_DF = filter.filter_by_client(CLIENT, df)
+
+        try: 
+            gc = gspread.service_account(filename=config.GC_KEY)
+            GDATA = gc.open_by_key(config.GSHEET_KEY)
+            METABASE_GSHEET = GDATA.worksheet(CLIENT)
+        except gspread.exceptions.WorksheetNotFound:
+            METABASE_GSHEET = GDATA.add_worksheet(title = CLIENT, rows=FILTER_DF.shape[0], cols=FILTER_DF.shape[1])
+
+        METABASE_GSHEET.clear()
+        METABASE_GSHEET.update([FILTER_DF.columns.values.tolist()] + FILTER_DF.values.tolist())
+
+        MIN_DATE = FILTER_DF['created_at'].min()
+        MAX_DATE = FILTER_DF['created_at'].max()
+        
+        SUCCESS = f'Da load {FILTER_DF.shape[0]} dong du lieu cua {CLIENT} thanh cong. Range data: {MIN_DATE} - {MAX_DATE}. Updated at: {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+        context.log.info(SUCCESS)
+
+    except Exception as e:
+        ERROR = f'Loi load du lieu cua Affiliate ngay {TODAY}: {str(e)}'
+        context.log.info(ERROR)
+    return FILTER_DF
+
+@dg.asset(deps=['cleaned_data'],
+          group_name='twitter')
+def gsheet_twitter(context: dg.AssetExecutionContext,
+                   filter: FilterResource,
+                   cleaned_data: pd.DataFrame):
+    context.log.info('Bat dau load du lieu cua Twitter')
+    try: 
+        df = cleaned_data.copy()
+        CLIENT = 'Twitter'
+        FILTER_DF = filter.filter_by_client(CLIENT, df)
+
+        try: 
+            gc = gspread.service_account(filename=config.GC_KEY)
+            GDATA = gc.open_by_key(config.GSHEET_KEY)
+            METABASE_GSHEET = GDATA.worksheet(CLIENT)
+        except gspread.exceptions.WorksheetNotFound:
+            METABASE_GSHEET = GDATA.add_worksheet(title = CLIENT, rows=FILTER_DF.shape[0], cols=FILTER_DF.shape[1])
+
+        METABASE_GSHEET.clear()
+        METABASE_GSHEET.update([FILTER_DF.columns.values.tolist()] + FILTER_DF.values.tolist())
+
+        MIN_DATE = FILTER_DF['created_at'].min()
+        MAX_DATE = FILTER_DF['created_at'].max()
+        
+        SUCCESS = f'Da load {FILTER_DF.shape[0]} dong du lieu cua {CLIENT} thanh cong. Range data: {MIN_DATE} - {MAX_DATE}. Updated at: {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+        context.log.info(SUCCESS)
+
+    except Exception as e:
+        ERROR = f'Loi load du lieu cua Affiliate ngay {TODAY}: {str(e)}'
+        context.log.info(ERROR)
+    return FILTER_DF
+
+@dg.asset(deps=['cleaned_data'], 
+          group_name='google')
+def gsheet_google(context: dg.AssetExecutionContext,
+                  filter: FilterResource,
+                  cleaned_data: pd.DataFrame):
+    context.log.info('Bat dau load du lieu cua Google')
+    try: 
+        df = cleaned_data.copy()
+        CLIENT = 'Google'
+        FILTER_DF = filter.filter_by_client(CLIENT, df)
+
+        try: 
+            gc = gspread.service_account(filename=config.GC_KEY)
+            GDATA = gc.open_by_key(config.GSHEET_KEY)
+            METABASE_GSHEET = GDATA.worksheet(CLIENT)
+        except gspread.exceptions.WorksheetNotFound:
+            METABASE_GSHEET = GDATA.add_worksheet(title = CLIENT, rows=FILTER_DF.shape[0], cols=FILTER_DF.shape[1])
+
+        METABASE_GSHEET.clear()
+        METABASE_GSHEET.update([FILTER_DF.columns.values.tolist()] + FILTER_DF.values.tolist())
+
+        MIN_DATE = FILTER_DF['created_at'].min()
+        MAX_DATE = FILTER_DF['created_at'].max()
+        
+        SUCCESS = f'Da load {FILTER_DF.shape[0]} dong du lieu cua {CLIENT} thanh cong. Range data: {MIN_DATE} - {MAX_DATE}. Updated at: {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+        context.log.info(SUCCESS)
+
+    except Exception as e:
+        ERROR = f'Loi load du lieu cua Affiliate ngay {TODAY}: {str(e)}'
+        context.log.info(ERROR)
+    return FILTER_DF
+
+
+####################
+# GUI EMAIL
+####################
+
+@dg.asset(deps=['gsheet_affiliate'], 
+          group_name='affiliate')
+def email_affiliate(context: dg.AssetExecutionContext,
+                    email: EmailResource,
+                    gsheet_affiliate: pd.DataFrame):
+    df = gsheet_affiliate.copy()
+    
+    CLIENT = 'Affiliate'
+    MESSAGE = f'Da load {df.shape[0]} dong du lieu vao Google Sheet thanh cong. Updated at: {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+    
+    context.log.info(f'Dang gui mail cho {CLIENT}')
+    email.sent_email(CLIENT, MESSAGE)
+    context.log.info(f'Hoan tat gui mail cho {CLIENT}')
+
+@dg.asset(deps=['gsheet_facebook'],
+          group_name='facebook')
+def email_facebook(context: dg.AssetExecutionContext,
+                    email: EmailResource,
+                    gsheet_facebook: pd.DataFrame):
+    df = gsheet_facebook.copy()
+    
+    CLIENT = 'Facebook'
+    MESSAGE = f'Da load {df.shape[0]} dong du lieu vao Google Sheet thanh cong. Updated at: {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+    
+    context.log.info(f'Dang gui mail cho {CLIENT}')
+    email.sent_email(CLIENT, MESSAGE)
+    context.log.info(f'Hoan tat gui mail cho {CLIENT}')
+
+@dg.asset(deps=['gsheet_organic'],
+          group_name='organic')
+def email_organic(context: dg.AssetExecutionContext,
+                    email: EmailResource,
+                    gsheet_organic: pd.DataFrame):
+    df = gsheet_organic.copy()
+    
+    CLIENT = 'Organic'
+    MESSAGE = f'Da load {df.shape[0]} dong du lieu vao Google Sheet thanh cong. Updated at: {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+    
+    context.log.info(f'Dang gui mail cho {CLIENT}')
+    email.sent_email(CLIENT, MESSAGE)
+    context.log.info(f'Hoan tat gui mail cho {CLIENT}')
+
+@dg.asset(deps=['gsheet_affiliate'],
+          group_name='twitter')
+def email_twitter(context: dg.AssetExecutionContext,
+                    email: EmailResource,
+                    gsheet_twitter: pd.DataFrame):
+    df = gsheet_twitter.copy()
+    
+    CLIENT = 'Twitter'
+    MESSAGE = f'Da load {df.shape[0]} dong du lieu vao Google Sheet thanh cong. Updated at: {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+    
+    context.log.info(f'Dang gui mail cho {CLIENT}')
+    email.sent_email(CLIENT, MESSAGE)
+    context.log.info(f'Hoan tat gui mail cho {CLIENT}')
+
+@dg.asset(deps=['gsheet_google'],
+          group_name='google')
+def email_google(context: dg.AssetExecutionContext,
+                    email: EmailResource,
+                    gsheet_google: pd.DataFrame):
+    df = gsheet_google.copy()
+    
+    CLIENT = 'Google'
+    MESSAGE = f'Da load {df.shape[0]} dong du lieu vao Google Sheet thanh cong. Updated at: {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+    
+    context.log.info(f'Dang gui mail cho {CLIENT}')
+    email.sent_email(CLIENT, MESSAGE)
+    context.log.info(f'Hoan tat gui mail cho {CLIENT}')
+

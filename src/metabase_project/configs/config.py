@@ -6,6 +6,14 @@ GC_KEY = 'src\metabase_project\configs\key.json'
 SUCCESS_CHANNEL = "https://ntfy.sh/mtb_success"
 FAILURE_CHANNEL = "https://ntfy.sh/mtb_fail"
 
+AFFILIATE_CHANNEL = "https://ntfy.sh/mtb_affiliate"
+FACEBOOK_CHANNEL = "https://ntfy.sh/mtb_facebook"
+ORGANIC_CHANNEL = "https://ntfy.sh/mtb_organic"
+TWITTER_CHANNEL = "https://ntfy.sh/mtb_twitter"
+GOOGLE_CHANNEL = "https://ntfy.sh/mtb_google"
+
+
+
 
 
 
