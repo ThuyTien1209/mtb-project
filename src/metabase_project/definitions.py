@@ -5,7 +5,7 @@ from .defs.jobs import jobs
 from .defs.resources.notifier import NftyResource
 from .defs.resources.filter import FilterResource
 from .defs.resources.email import EmailResource
-
+from .defs.resources.client import ClientResource
 
 all_assets = dg.load_assets_from_modules([assets])
 
@@ -15,7 +15,8 @@ defs = dg.Definitions(
     resources={
         'nfty': NftyResource(),
         'filter': FilterResource(),
-        'email': EmailResource()
+        'email': EmailResource(),
+        'client': ClientResource()
     },
     
     jobs=[jobs.full_job_affiliate,
